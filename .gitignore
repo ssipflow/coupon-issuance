@@ -1,0 +1,55 @@
+# Go build
+/bin/
+/build/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go modules
+/go.sum
+/go.mod.tmp
+
+# IDE/editor config
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dependency directories (Go vendor)
+/vendor/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# dotenv
+.env
+
+# buf build artifacts
+gen/
+
+# Docker
+*.pid
+*.tar
+*.bak
+
+# Coverage/testing
+*.coverprofile
+coverage.out
+
+# Byebug/Debugger
+__debug_bin
+
+# Asynq queue persistence (if using disk mode – optional)
+queue.db
+
+# Misc
+tmp/
