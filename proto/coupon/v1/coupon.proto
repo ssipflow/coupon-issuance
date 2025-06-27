@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package coupon.v1;
 
-option go_package = "github.com/ssipflow/coupon-issuance/gen/coupon/v1;couponv1";
+option go_package = "github.com/ssipflow/coupon-issuance/gen/proto/coupon/v1;couponv1";
 
 service CouponService {
   rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
