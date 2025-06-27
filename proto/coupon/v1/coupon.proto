@@ -21,7 +21,7 @@ message CreateCampaignResponse {
 }
 
 message GetCampaignRequest {
-  string campaign_id = 1;
+  int32 campaign_id = 1;
 }
 
 message GetCampaignResponse {
@@ -30,8 +30,8 @@ message GetCampaignResponse {
 }
 
 message IssueCouponRequest {
-  string campaign_id = 1;
-  string user_id = 2;
+  int32 campaign_id = 1;
+  int32 user_id = 2;
 }
 
 message IssueCouponResponse {

@@ -7,7 +7,19 @@ import (
 	"os"
 )
 
-func StartWorker(redisClient *repo.RedisClient, db *repo.MySqlRepository) {
+type AsynqWorker struct {
+	mySqlRepository *repo.MySqlRepository
+	redisClient     *repo.RedisClient
+}
+
+func NewAsynqWorker(repository *repo.MySqlRepository, redisClient *repo.RedisClient) *AsynqWorker {
+	return &AsynqWorker{
+		mySqlRepository: repository,
+		redisClient:     redisClient,
+	}
+}
+
+func (a *AsynqWorker) Start() {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR")},
 		asynq.Config{
@@ -18,8 +30,10 @@ func StartWorker(redisClient *repo.RedisClient, db *repo.MySqlRepository) {
 		},
 	)
 
+	consumer := NewConsumer(a.redisClient, a.mySqlRepository)
+
 	mux := asynq.NewServeMux()
-	mux.HandleFunc("coupon:issue", IssueCouponProcessor(db, redisClient))
+	mux.HandleFunc("coupon:issue", consumer.IssueCouponProcessor())
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatalf("asynq worker failed: %v", err)

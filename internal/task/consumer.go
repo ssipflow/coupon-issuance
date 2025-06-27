@@ -10,11 +10,23 @@ import (
 	"github.com/ssipflow/coupon-issuance/pkg/util"
 )
 
-func IssueCouponProcessor(db *repo.MySqlRepository, redisClient *repo.RedisClient) asynq.HandlerFunc {
+type Consumer struct {
+	mySqlRepository *repo.MySqlRepository
+	redisClient     *repo.RedisClient
+}
+
+func NewConsumer(redisClient *repo.RedisClient, mySqlRepository *repo.MySqlRepository) *Consumer {
+	return &Consumer{
+		mySqlRepository: mySqlRepository,
+		redisClient:     redisClient,
+	}
+}
+
+func (c *Consumer) IssueCouponProcessor() asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		var payload struct {
-			CampaignID uint   `json:"campaign_id"`
-			UserID     string `json:"user_id"`
+			CampaignID int32 `json:"campaign_id"`
+			UserID     int32 `json:"user_id"`
 		}
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 			return err
@@ -27,12 +39,12 @@ func IssueCouponProcessor(db *repo.MySqlRepository, redisClient *repo.RedisClien
 			UserID:     payload.UserID,
 			Code:       code,
 		}
-		if err := db.CreateCoupon(&coupon); err != nil {
+		if err := c.mySqlRepository.CreateCoupon(&coupon); err != nil {
 			return err
 		}
 
 		codeKey := fmt.Sprintf("coupon:codes:%s", payload.CampaignID)
-		redisClient.SAdd(ctx, codeKey, code)
+		c.redisClient.SAdd(ctx, codeKey, code)
 
 		return nil
 	}
