@@ -16,15 +16,15 @@ func main() {
 		log.Println(".env file not found")
 	}
 
-	redis := repo.NewRedisClient()
-	db := repo.NewMySQLDB()
+	redisClient := repo.NewRedisClient()
+	db := repo.NewRepository()
 
 	go func() {
-		task.StartWorker(redis, db)
+		task.StartWorker(redisClient, db)
 	}()
 
 	mux := http.NewServeMux()
-	couponHandler := handler.NewCouponHandler(redis, db)
+	couponHandler := handler.NewCouponHandler(redisClient, db)
 	path, svcHandler := couponv1connect.NewCouponServiceHandler(couponHandler)
 	mux.Handle(path, svcHandler)
 

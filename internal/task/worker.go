@@ -2,13 +2,12 @@ package task
 
 import (
 	"github.com/hibiken/asynq"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
+	"github.com/ssipflow/coupon-issuance/internal/repo"
 	"log"
 	"os"
 )
 
-func StartWorker(redisClient *redis.Client, db *gorm.DB) {
+func StartWorker(redisClient *repo.RedisClient, db *repo.MySqlRepository) {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR")},
 		asynq.Config{

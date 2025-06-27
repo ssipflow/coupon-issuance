@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hibiken/asynq"
-	"github.com/redis/go-redis/v9"
+	"github.com/ssipflow/coupon-issuance/internal/entity"
+	"github.com/ssipflow/coupon-issuance/internal/repo"
 	"github.com/ssipflow/coupon-issuance/pkg/util"
-	"gorm.io/gorm"
 )
 
-func IssueCouponProcessor(db *gorm.DB, redisClient *redis.Client) asynq.HandlerFunc {
+func IssueCouponProcessor(db *repo.MySqlRepository, redisClient *repo.RedisClient) asynq.HandlerFunc {
 	return func(ctx context.Context, t *asynq.Task) error {
 		var payload struct {
-			CampaignID string `json:"campaign_id"`
+			CampaignID uint   `json:"campaign_id"`
 			UserID     string `json:"user_id"`
 		}
 		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
@@ -22,12 +22,12 @@ func IssueCouponProcessor(db *gorm.DB, redisClient *redis.Client) asynq.HandlerF
 
 		code := util.GenerateCouponCode()
 
-		coupon := model.Coupon{
+		coupon := entity.Coupon{
 			CampaignID: payload.CampaignID,
 			UserID:     payload.UserID,
 			Code:       code,
 		}
-		if err := db.Create(&coupon).Error; err != nil {
+		if err := db.CreateCoupon(&coupon); err != nil {
 			return err
 		}
 

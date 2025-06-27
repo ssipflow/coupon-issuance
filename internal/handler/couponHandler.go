@@ -3,18 +3,17 @@ package handler
 import (
 	"context"
 	connectgo "github.com/bufbuild/connect-go"
-	"github.com/redis/go-redis/v9"
 	v1 "github.com/ssipflow/coupon-issuance/gen/proto/coupon/v1"
 	"github.com/ssipflow/coupon-issuance/gen/proto/coupon/v1/couponv1connect"
-	"gorm.io/gorm"
+	"github.com/ssipflow/coupon-issuance/internal/repo"
 )
 
 type CouponHandler struct {
-	redis *redis.Client
-	db    *gorm.DB
+	redisClient     *repo.RedisClient
+	mySqlRepository *repo.MySqlRepository
 }
 
-func NewCouponHandler(redis *redis.Client, db *gorm.DB) couponv1connect.CouponServiceHandler {
+func NewCouponHandler(redis *repo.RedisClient, db *repo.MySqlRepository) couponv1connect.CouponServiceHandler {
 	return &CouponHandler{redis, db}
 }
 
