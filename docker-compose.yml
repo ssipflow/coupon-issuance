@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - mysql
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    networks:
+      - backend
+
+  redis:
+    image: redis:7.2
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: coupon
+    ports:
+      - "3306:3306"
+    networks:
+      - backend
+
+  asynqmon:
+    image: hibiken/asynqmon
+    ports:
+      - "8081:8080"
+    environment:
+      - REDIS_ADDR=redis:6379
+    networks:
+      - backend
+
+networks:
+  backend:

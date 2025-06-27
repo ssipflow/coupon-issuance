@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package coupon.v1;
+
+option go_package = "github.com/ssipflow/coupon-issuance/gen/coupon/v1;couponv1";
+
+service CouponService {
+  rpc CreateCampaign(CreateCampaignRequest) returns (CreateCampaignResponse);
+  rpc GetCampaign(GetCampaignRequest) returns (GetCampaignResponse);
+  rpc IssueCoupon(IssueCouponRequest) returns (IssueCouponResponse);
+}
+
+message CreateCampaignRequest {
+  string name = 1;
+  int32 total_count = 2;
+  string start_time = 3; // ISO8601 string
+}
+
+message CreateCampaignResponse {
+  string campaign_id = 1;
+}
+
+message GetCampaignRequest {
+  string campaign_id = 1;
+}
+
+message GetCampaignResponse {
+  string name = 1;
+  repeated string issued_coupons = 2;
+}
+
+message IssueCouponRequest {
+  string campaign_id = 1;
+  string user_id = 2;
+}
+
+message IssueCouponResponse {
+  string coupon_code = 1;
+}
