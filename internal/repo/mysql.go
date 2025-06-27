@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"errors"
+	"github.com/ssipflow/coupon-issuance/internal/dto"
 	"github.com/ssipflow/coupon-issuance/internal/entity"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -34,7 +35,42 @@ func (r *MySqlRepository) CreateCoupon(ctx context.Context, coupon *entity.Coupo
 	return r.db.WithContext(ctx).Create(coupon).Error
 }
 
-func (r *MySqlRepository) GetCampaignById(id int32) (*entity.Campaign, error) {
+func (r *MySqlRepository) GetCampaignWithCouponsById(ctx context.Context, id int32) (*dto.Campaign, error) {
+	var campaign entity.Campaign
+	if err := r.db.WithContext(ctx).
+		First(&campaign).
+		Where("id = ?", id).
+		Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Println("CAMPAIGN_NOT_FOUND")
+		}
+		return nil, err
+	}
+
+	coupon := &entity.Coupon{}
+	var codes []string
+	if err := r.db.WithContext(ctx).
+		Table(coupon.GetTableName()).
+		Where("campaign_id = ?", id).
+		Pluck("code", &codes).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Println("COUPON_NOT_FOUND")
+		}
+		return nil, err
+	}
+
+	return &dto.Campaign{
+		ID:          campaign.ID,
+		Name:        campaign.Name,
+		TotalCount:  campaign.TotalCount,
+		StartTime:   campaign.StartTime,
+		CreatedAt:   campaign.CreatedAt,
+		UpdatedAt:   campaign.UpdatedAt,
+		CouponCodes: codes,
+	}, nil
+}
+
+func (r *MySqlRepository) GetCampaignById(id int32) (*dto.Campaign, error) {
 	var campaign entity.Campaign
 	if err := r.db.
 		Where("id = ?", id).
@@ -44,5 +80,14 @@ func (r *MySqlRepository) GetCampaignById(id int32) (*entity.Campaign, error) {
 		}
 		return nil, err
 	}
-	return &campaign, nil
+
+	return &dto.Campaign{
+		ID:          campaign.ID,
+		Name:        campaign.Name,
+		TotalCount:  campaign.TotalCount,
+		StartTime:   campaign.StartTime,
+		CreatedAt:   campaign.CreatedAt,
+		UpdatedAt:   campaign.UpdatedAt,
+		CouponCodes: nil,
+	}, nil
 }

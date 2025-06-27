@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ssipflow/coupon-issuance/internal/dto"
 	"github.com/ssipflow/coupon-issuance/internal/entity"
 	"github.com/ssipflow/coupon-issuance/internal/repo"
 	"github.com/ssipflow/coupon-issuance/internal/task"
@@ -34,6 +35,19 @@ func (c *CouponService) CreateCampaign(ctx context.Context, name string, total i
 	}
 
 	return campaign.ID, nil
+}
+
+func (c *CouponService) GetCampaign(ctx context.Context, id int32) (*dto.Campaign, error) {
+	campaign, err := c.mySqlRepository.GetCampaignWithCouponsById(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("RECORD_NOT_FOUND")
+		}
+		log.Println(err.Error())
+		return nil, fmt.Errorf("MYSQL: %s", "INTERNAL_SERVER_ERROR")
+	}
+
+	return campaign, nil
 }
 
 func (c *CouponService) IssueCoupon(ctx context.Context, campaignId int32, userId int32) error {
