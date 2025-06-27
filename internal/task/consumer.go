@@ -34,16 +34,16 @@ func (c *Consumer) IssueCouponProcessor() asynq.HandlerFunc {
 
 		code := util.GenerateCouponCode()
 
-		coupon := entity.Coupon{
+		coupon := &entity.Coupon{
 			CampaignID: payload.CampaignID,
 			UserID:     payload.UserID,
 			Code:       code,
 		}
-		if err := c.mySqlRepository.CreateCoupon(&coupon); err != nil {
+		if err := c.mySqlRepository.CreateCoupon(ctx, coupon); err != nil {
 			return err
 		}
 
-		codeKey := fmt.Sprintf("coupon:codes:%s", payload.CampaignID)
+		codeKey := fmt.Sprintf("coupon:codes:%d", payload.CampaignID)
 		c.redisClient.SAdd(ctx, codeKey, code)
 
 		return nil

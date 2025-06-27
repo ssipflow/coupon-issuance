@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ssipflow/coupon-issuance/internal/entity"
 	"github.com/ssipflow/coupon-issuance/internal/repo"
 	"github.com/ssipflow/coupon-issuance/internal/task"
 	"gorm.io/gorm"
@@ -19,6 +20,20 @@ type CouponService struct {
 
 func NewCouponService(redis *repo.RedisClient, db *repo.MySqlRepository) *CouponService {
 	return &CouponService{redis, db}
+}
+
+func (c *CouponService) CreateCampaign(ctx context.Context, name string, total int64, startAt time.Time) (int32, error) {
+	campaign := &entity.Campaign{
+		Name:       name,
+		TotalCount: total,
+		StartTime:  startAt,
+	}
+
+	if err := c.mySqlRepository.CreateCampaign(ctx, campaign); err != nil {
+		return 0, err
+	}
+
+	return campaign.ID, nil
 }
 
 func (c *CouponService) IssueCoupon(ctx context.Context, campaignId int32, userId int32) error {
@@ -51,7 +66,7 @@ func (c *CouponService) IssueCoupon(ctx context.Context, campaignId int32, userI
 		log.Println(err.Error())
 		return fmt.Errorf("INCR: %s", "INTERNAL_SERVER_ERROR")
 	}
-	if count > int64(campaign.TotalCount) {
+	if count > campaign.TotalCount {
 		return fmt.Errorf("COUPON_SOLD_OUT")
 	}
 

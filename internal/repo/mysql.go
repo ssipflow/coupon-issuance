@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"errors"
 	"github.com/ssipflow/coupon-issuance/internal/entity"
 	"gorm.io/driver/mysql"
@@ -25,8 +26,12 @@ func NewRepository() *MySqlRepository {
 	}
 }
 
-func (r *MySqlRepository) CreateCoupon(coupon *entity.Coupon) error {
-	return r.db.Create(coupon).Error
+func (r *MySqlRepository) CreateCampaign(ctx context.Context, campaign *entity.Campaign) error {
+	return r.db.WithContext(ctx).Create(campaign).Error
+}
+
+func (r *MySqlRepository) CreateCoupon(ctx context.Context, coupon *entity.Coupon) error {
+	return r.db.WithContext(ctx).Create(coupon).Error
 }
 
 func (r *MySqlRepository) GetCampaignById(id int32) (*entity.Campaign, error) {
