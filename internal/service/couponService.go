@@ -3,94 +3,111 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/hibiken/asynq"
 	"github.com/ssipflow/coupon-issuance/internal/dto"
 	"github.com/ssipflow/coupon-issuance/internal/entity"
+	"github.com/ssipflow/coupon-issuance/internal/errors"
+	"github.com/ssipflow/coupon-issuance/internal/infra"
 	"github.com/ssipflow/coupon-issuance/internal/repo"
 	"github.com/ssipflow/coupon-issuance/internal/task"
-	"gorm.io/gorm"
 	"log"
 	"time"
 )
 
 type CouponService struct {
-	redisClient     *repo.RedisClient
-	mySqlRepository *repo.MySqlRepository
+	redisClient      *infra.RedisClient
+	couponRepository *repo.CouponRepository
 }
 
-func NewCouponService(redis *repo.RedisClient, db *repo.MySqlRepository) *CouponService {
+func NewCouponService(redis *infra.RedisClient, db *repo.CouponRepository) *CouponService {
 	return &CouponService{redis, db}
 }
 
-func (c *CouponService) CreateCampaign(ctx context.Context, name string, total int64, startAt time.Time) (int32, error) {
+func (c *CouponService) CreateCampaign(ctx context.Context, name string, limit int64, startAt time.Time) (int32, error) {
 	campaign := &entity.Campaign{
-		Name:       name,
-		TotalCount: total,
-		StartTime:  startAt,
+		Name:        name,
+		CouponLimit: limit,
+		StartTime:   startAt,
 	}
 
-	if err := c.mySqlRepository.CreateCampaign(ctx, campaign); err != nil {
-		return 0, err
+	if err := c.couponRepository.CreateCampaign(ctx, campaign); err != nil {
+		log.Printf("CreateCampaign.CreateCampaign.err: %v\n", err)
+		return 0, errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
 	}
 
 	return campaign.ID, nil
 }
 
 func (c *CouponService) GetCampaign(ctx context.Context, id int32) (*dto.Campaign, error) {
-	campaign, err := c.mySqlRepository.GetCampaignWithCouponsById(ctx, id)
+	campaign, err := c.couponRepository.GetCampaignWithCouponsById(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("RECORD_NOT_FOUND")
-		}
-		log.Println(err.Error())
-		return nil, fmt.Errorf("MYSQL: %s", "INTERNAL_SERVER_ERROR")
+		log.Printf("GetCampaign.GetCampaignWithCouponsById.err: %v\n", err.Error())
+		return nil, errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
+	}
+	if campaign == nil {
+		return nil, errors.NewError(errors.ERR_RECORD_NOT_FOUND)
 	}
 
 	return campaign, nil
 }
 
 func (c *CouponService) IssueCoupon(ctx context.Context, campaignId int32, userId int32) error {
-	campaign, err := c.mySqlRepository.GetCampaignById(campaignId)
+	campaign, err := c.couponRepository.GetCampaignById(campaignId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("RECORD_NOT_FOUND")
-		}
-		log.Println(err.Error())
-		return fmt.Errorf("MYSQL: %s", "INTERNAL_SERVER_ERROR")
+		log.Printf("IssueCoupon.GetCampaignById.err: %v\n", err.Error())
+		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
+	}
+	if campaign == nil {
+		return errors.NewError(errors.ERR_RECORD_NOT_FOUND)
 	}
 
-	if time.Now().Before(campaign.StartTime) {
-		return fmt.Errorf("CAMPAIGN_NOT_STARTED")
+	if time.Now().Before(campaign.GetStartTime()) {
+		return errors.NewError(errors.ERR_CAMPAIGN_NOT_STARTED)
 	}
 
-	claimedKey := fmt.Sprintf("coupon:claimed:%d:%d", campaignId, userId)
-	ok, err := c.redisClient.SetNx(ctx, claimedKey, 1, 24*time.Hour)
+	couponExists, err := c.couponRepository.GetCouponByUserAndCampaign(ctx, userId, campaignId)
 	if err != nil {
-		log.Println(err.Error())
-		return fmt.Errorf("SETNX: %s", "INTERNAL_SERVER_ERROR")
+		log.Printf("IssueCoupon.GetCouponByUserAndCampaign failed: %v", err)
+		return err
+	}
+	if couponExists != nil {
+		return errors.NewError(errors.ERR_COUPON_ALREADY_CLAIMED)
+	}
+
+	lockKey := fmt.Sprintf("lock:coupon:campaign:%d:user:%d", campaignId, userId)
+	ok, err := c.redisClient.SetNx(ctx, lockKey, 1, 24*time.Hour)
+	if err != nil {
+		log.Printf("IssueCoupon.SetNx.err: %v\n", err.Error())
+		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
 	}
 	if !ok {
-		return fmt.Errorf("ALREADY_CLAIMED")
+		return errors.NewError(errors.ERR_COUPON_ALREADY_CLAIMED)
 	}
 
-	issuedKey := fmt.Sprintf("coupon:issued:%d", campaignId)
-	count, err := c.redisClient.Incr(ctx, issuedKey)
+	issuedCouponCount := fmt.Sprintf("coupon:issued:campaign:%d", campaignId)
+	count, err := c.redisClient.Incr(ctx, issuedCouponCount)
 	if err != nil {
-		log.Println(err.Error())
-		return fmt.Errorf("INCR: %s", "INTERNAL_SERVER_ERROR")
+		log.Printf("IssueCoupon.Incr.err: %v\n", err.Error())
+		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
 	}
-	if count > campaign.TotalCount {
-		return fmt.Errorf("COUPON_SOLD_OUT")
+	if count > campaign.GetCouponLimit() {
+		return errors.NewError(errors.ERR_COUPON_SOLD_OUT)
 	}
 
 	payload, _ := json.Marshal(map[string]int32{
 		"campaign_id": campaignId,
 		"user_id":     userId,
 	})
-	if err := task.JobProduce("coupon:issue", payload); err != nil {
-		log.Println(err.Error())
-		return fmt.Errorf("PRODUCER: %s", "INTERNAL_SERVER_ERROR")
+
+	asynqOpts := []asynq.Option{
+		asynq.MaxRetry(3),
+		asynq.Timeout(5 * time.Second),
+		asynq.Queue("default"),
+	}
+	if err := task.ProduceTask("task:coupon:issue", payload, asynqOpts...); err != nil {
+		log.Printf("IssueCoupon.JobProduce.err: %v\n", err.Error())
+		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
 	}
 
 	return nil

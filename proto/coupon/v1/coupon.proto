@@ -12,7 +12,7 @@ service CouponService {
 
 message CreateCampaignRequest {
   string name = 1;
-  int64 total_count = 2;
+  int64 coupon_limit = 2;
   string start_time = 3; // ISO8601 string
 }
 
@@ -25,8 +25,14 @@ message GetCampaignRequest {
 }
 
 message GetCampaignResponse {
-  string name = 1;
-  repeated string issued_coupons = 2;
+  int32 id = 1;
+  string name = 2;
+  int64 coupon_limit = 3;
+  int64 current_coupon = 4;
+  string start_time = 5;
+  string created_at = 6;
+  string updated_at = 7;
+  repeated string issued_coupons = 8;
 }
 
 message IssueCouponRequest {
@@ -35,5 +41,5 @@ message IssueCouponRequest {
 }
 
 message IssueCouponResponse {
-  string coupon_code = 1;
+  string message = 1;
 }

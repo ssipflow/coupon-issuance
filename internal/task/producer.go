@@ -5,13 +5,13 @@ import (
 	"os"
 )
 
-func JobProduce(key string, payload []byte) error {
-	task := asynq.NewTask(key, payload)
+func ProduceTask(taskKey string, payload []byte, opts ...asynq.Option) error {
+	task := asynq.NewTask(taskKey, payload)
 
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR")})
 	defer client.Close()
 
-	if _, err := client.Enqueue(task); err != nil {
+	if _, err := client.Enqueue(task, opts...); err != nil {
 		return err
 	}
 	return nil
