@@ -32,9 +32,6 @@ Thumbs.db
 # dotenv
 .env
 
-# buf build artifacts
-gen/
-
 # Docker
 *.pid
 *.tar
