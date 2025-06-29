@@ -70,7 +70,7 @@ func (c *CouponHandler) IssueCoupon(ctx context.Context, req *connect.Request[v1
 		case errors.ERR_COUPON_ALREADY_CLAIMED:
 			return nil, connect.NewError(connect.CodeAlreadyExists, err)
 		case errors.ERR_COUPON_SOLD_OUT:
-			return nil, connect.NewError(connect.CodeResourceExhausted, err)
+			return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 		default:
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}

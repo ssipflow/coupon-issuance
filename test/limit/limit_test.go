@@ -1,4 +1,4 @@
-package stress
+package limit
 
 import (
 	"bytes"
@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-func TestIssueCoupon_Stress(t *testing.T) {
+func TestIssueCoupon_LimitCoupon(t *testing.T) {
 	start := time.Now()
-	campaignIDs := util.CreateCampaigns(util.CampaignCount, util.CouponLimitForStress, util.CampaignNameForStress)
+	campaignIDs := util.CreateCampaigns(util.CampaignCount, util.CouponLimitForExceed, util.CampaignNameForLimit)
 	duration := time.Since(start)
 	log.Printf("Created %d campaigns in %v", len(campaignIDs), duration)
 
@@ -52,7 +52,9 @@ func TestIssueCoupon_Stress(t *testing.T) {
 					atomic.AddInt64(&success, 1)
 				}
 			} else {
-				log.Printf("[ERROR] %v", http.StatusText(resp.StatusCode))
+				if resp.StatusCode == http.StatusInternalServerError {
+					log.Printf("[ERROR] %v", http.StatusText(resp.StatusCode))
+				}
 				atomic.AddInt64(&failed, 1)
 			}
 		}(i + 1)

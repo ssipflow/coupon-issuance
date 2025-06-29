@@ -83,7 +83,8 @@ func (c *CouponService) IssueCoupon(ctx context.Context, campaignId int32, userI
 		log.Printf("IssueCoupon.Incr.err: %v\n", err.Error())
 		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
 	}
-	if count == campaign.GetCouponLimit() {
+	if count > campaign.GetCouponLimit() {
+		_, _ = c.redisClient.Decr(ctx, issuedCouponCountKey)
 		return errors.NewError(errors.ERR_COUPON_SOLD_OUT)
 	}
 
