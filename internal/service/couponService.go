@@ -95,6 +95,7 @@ func (c *CouponService) IssueCoupon(ctx context.Context, campaignId int32, userI
 		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
 	}
 	if !ok {
+		_, _ = c.redisClient.Decr(ctx, issuedCouponCountKey)
 		return errors.NewError(errors.ERR_COUPON_ALREADY_CLAIMED)
 	}
 
