@@ -19,9 +19,19 @@
 docker compose up --scale backend-app={numberOfInstance} --build
 ```
 
-- `--scale backend-app={numberOfInstance}`
-  - numberOfInstance: `backend-app` 인스턴스 scale out
-  - `docker compose` Instance
+- --scale backend-app={numberOfInstance}
+  - backend-app 인스턴스를 지정 개수만큼 실행
+  - 예: --scale backend-app=2 → 2개 인스턴스 실행
+  -	--scale backend-app=0 → backend-app-primary 단일 인스턴스만 실행
+
+### backend-app-primary 와 backend-app 분리이유
+- 초기화 작업 전용 인스턴스로 backend-app-primary를 분리
+  - Redis `flushall`, DB 스키마 Create/Drop 등의 작업은 **1회만 수행되어야 함**
+  - 여러 인스턴스가 동시에 수행하면 충돌 위험 존재
+- backend-app은 **API 요청처리용 인스턴스**로 수평 확장 대상
+
+> 따라서 싱글인스턴스로 실행할 경우 --scale backend-app=0 옵션으로 실행
+
 ---
 
 ## 3. Architecture Overview
@@ -40,20 +50,21 @@ docker compose up --scale backend-app={numberOfInstance} --build
 
 ## 4. 주요 고려사항
 
-### 동시성 정합성
+### 4.1. 동시성 정합성
 
 - Redis `SETNX`로 중복 발급 방지
 - Redis `INCR` 기반 선점, DB 최종 반영
 - Consumer 트랜잭션 실패 시 Redis 상태 복원 및 롤백 처리
 
-### 테스트 전략
+### 4.2. 테스트 전략
 
 | 도구 | 목적 | 설명 |
 |------|------|------|
 | `go test` | 단위 테스트 | 로직 단위의 기본 검증 |
 | `k6` | 부하 테스트 | 최대 1000TPS 목표 성능 검증 |
 
-### go test 
+### 4.3. go test 
+
 ```bash
 go test -v -count=1 ./test/stress
 ```
@@ -64,7 +75,8 @@ go test -v -count=1 ./test/limit
 ```
 - Campaign 생성 및 쿠폰수량 한정 테스트
 
-### K6 부하 테스트 예시
+### 4.4. K6 부하 테스트 예시
+
 ```bash
 brew install k6
 ```
@@ -81,7 +93,7 @@ k6 run test/k6/stress/stress_test.js
 
 ## 5. API 명세
 
-## 5.0 Error Message
+## 5.0. Error Message
 | message | 의미 |
 |--------|------|
 | `RECORD_NOT_FOUND` | 데이터 없음 |
@@ -91,7 +103,7 @@ k6 run test/k6/stress/stress_test.js
 | `INTERNAL_SERVER_ERROR` | 서버 내부 오류 |
 
 
-### 5.1 CreateCampaign
+### 5.1. CreateCampaign
 
 - POST `/coupon.v1.CouponService/CreateCampaign`
 - Request:
@@ -114,7 +126,7 @@ k6 run test/k6/stress/stress_test.js
 
 ---
 
-### 5.2 GetCampaign
+### 5.2. GetCampaign
 
 - POST `/coupon.v1.CouponService/CreateCampaign`
 - `name`, `coupon_limit`, `start_time(ISO8601)` 입력
@@ -143,7 +155,7 @@ k6 run test/k6/stress/stress_test.js
 }
 ```
 
-### 5.3 IssueCoupon
+### 5.3. IssueCoupon
 
 - POST `/coupon.v1.CouponService/IssueCoupon`
 - Request:
@@ -166,7 +178,7 @@ k6 run test/k6/stress/stress_test.js
 
 ## 6. DB 스키마 요약
 
-### 6.1 campaigns
+### 6.1. campaigns
 
 | 필드명 | 설명 |
 |--------|------|
@@ -176,7 +188,7 @@ k6 run test/k6/stress/stress_test.js
 | current_coupon | 현재 발급된 수량 |
 | start_time | 발급 시작 시간 |
 
-### 6.2 coupons
+### 6.2. coupons
 
 | 필드명 | 설명 |
 |--------|------|
@@ -192,7 +204,7 @@ k6 run test/k6/stress/stress_test.js
 ---
 
 ## 7. 성능 테스트
-### 7.1 주의사항
+### 7.1. 주의사항
 최초 성능 테스트 시에는 다음과 같은 이유로 목표 TPS 가 다소 낮게 측정될 수 있습니다.
 - DB Connection Pool 미가동
 - Redis 초기 연결 지연
@@ -208,7 +220,7 @@ go test -v -count=1 ./test/stress
 k6 run test/k6/stress/stress_test.js
 ```
 
-### 7.2 Single Instance K6 Test
+### 7.2. Single Instance K6 Test
 ```bash
 docker compose up --scale backend-app=0 --build
 ```
@@ -296,7 +308,7 @@ constant_rate_test ✓ [======================================] 0000/1000 VUs  1
   - 평균 응답 시간 7ms 수준으로, 시스템의 I/O 성능과 비즈니스 로직이 경량화되어 있음을 확인
   - 수평 확장 없이도 가벼운 규모의 캠페인 처리에 적합하며, 수직 확장을 통한 성능 확보도 가능
 
-### 7.3 Multi Instance K6 Test
+### 7.3. Multi Instance K6 Test
 
 - **실행 환경**  
   - `backend-app-primary`: 1 인스턴스  
