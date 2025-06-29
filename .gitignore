@@ -29,9 +29,6 @@ Thumbs.db
 # Logs
 *.log
 
-# dotenv
-.env
-
 # Docker
 *.pid
 *.tar
