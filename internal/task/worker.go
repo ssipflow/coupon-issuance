@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"github.com/hibiken/asynq"
 	"github.com/ssipflow/coupon-issuance/internal/infra"
 	"github.com/ssipflow/coupon-issuance/internal/repo"
@@ -28,6 +29,9 @@ func (a *AsynqWorker) Start() {
 			Queues: map[string]int{
 				"default": 1,
 			},
+			ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
+				log.Printf("[ASYNQ] TASK: %s, PAYLOAD: %s, ERROR: %v", task.Type(), string(task.Payload()), err)
+			}),
 		},
 	)
 

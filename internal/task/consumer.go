@@ -34,6 +34,10 @@ func (c *Consumer) IssueCouponProcessor() asynq.HandlerFunc {
 			return err
 		}
 
+		if payload.UserID == -1 {
+			return fmt.Errorf("simulated error for user ID -1")
+		}
+
 		lockKey := fmt.Sprintf("lock:coupon:campaign:%d:user:%d", payload.CampaignID, payload.UserID)
 
 		tx := c.couponRepository.GetDB().Begin()
