@@ -92,7 +92,7 @@ func (r *CouponRepository) CreateCoupon(tx *gorm.DB, ctx context.Context, coupon
 	return nil
 }
 
-func (r *CouponRepository) UpdateCampaignCurrentCoupon(tx *gorm.DB, ctx context.Context, campaignId int32, currentCoupon int64) error {
+func (r *CouponRepository) IncrementCampaignCurrentCoupon(tx *gorm.DB, ctx context.Context, campaignId int32) error {
 	db := r.db
 	if tx != nil {
 		db = tx
@@ -101,7 +101,7 @@ func (r *CouponRepository) UpdateCampaignCurrentCoupon(tx *gorm.DB, ctx context.
 	err := db.WithContext(ctx).
 		Model(&entity.Campaign{}).
 		Where("id = ?", campaignId).
-		Update("current_coupon", currentCoupon).Error
+		UpdateColumn("current_coupon", gorm.Expr("current_coupon + ?", 1)).Error
 	if err != nil {
 		log.Printf("UpdateCampaignCurrentCoupon.err: %v\n", err.Error())
 		return err

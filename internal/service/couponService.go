@@ -66,13 +66,25 @@ func (c *CouponService) IssueCoupon(ctx context.Context, campaignId int32, userI
 		return errors.NewError(errors.ERR_CAMPAIGN_NOT_STARTED)
 	}
 
-	couponExists, err := c.couponRepository.GetCouponByUserAndCampaign(ctx, userId, campaignId)
+	cacheKey := "cache:coupon:issued"
+	issuedCouponCacheKey := fmt.Sprintf("campaign:%d:user:%d", campaignId, userId)
+	isCouponIssued, err := c.redisClient.HExists(ctx, cacheKey, issuedCouponCacheKey)
 	if err != nil {
-		log.Printf("IssueCoupon.GetCouponByUserAndCampaign failed: %v", err)
-		return err
+		log.Printf("IssueCoupon.HExists.err: %v\n", err.Error())
+		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
 	}
-	if couponExists != nil {
+	if isCouponIssued {
 		return errors.NewError(errors.ERR_COUPON_ALREADY_CLAIMED)
+	}
+
+	issuedCouponCountKey := fmt.Sprintf("coupon:issued:campaign:%d", campaignId)
+	count, err := c.redisClient.Incr(ctx, issuedCouponCountKey)
+	if err != nil {
+		log.Printf("IssueCoupon.Incr.err: %v\n", err.Error())
+		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
+	}
+	if count == campaign.GetCouponLimit() {
+		return errors.NewError(errors.ERR_COUPON_SOLD_OUT)
 	}
 
 	lockKey := fmt.Sprintf("lock:coupon:campaign:%d:user:%d", campaignId, userId)
@@ -83,16 +95,6 @@ func (c *CouponService) IssueCoupon(ctx context.Context, campaignId int32, userI
 	}
 	if !ok {
 		return errors.NewError(errors.ERR_COUPON_ALREADY_CLAIMED)
-	}
-
-	issuedCouponCount := fmt.Sprintf("coupon:issued:campaign:%d", campaignId)
-	count, err := c.redisClient.Incr(ctx, issuedCouponCount)
-	if err != nil {
-		log.Printf("IssueCoupon.Incr.err: %v\n", err.Error())
-		return errors.NewError(errors.ERR_INTERNAL_SERVER_ERROR)
-	}
-	if count > campaign.GetCouponLimit() {
-		return errors.NewError(errors.ERR_COUPON_SOLD_OUT)
 	}
 
 	payload, _ := json.Marshal(map[string]int32{

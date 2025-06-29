@@ -38,7 +38,7 @@ services:
       MYSQL_PASSWORD: testpassword
       MYSQL_DATABASE: coupon
     command:
-      - "--max_connections=500"
+      - "--max_connections=200"
     ports:
       - "3306:3306"
     networks:

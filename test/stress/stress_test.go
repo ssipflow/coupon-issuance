@@ -59,7 +59,10 @@ func createCampaigns(n int, countPerCampaign int) []int32 {
 }
 
 func TestIssueCoupon_Stress(t *testing.T) {
+	start := time.Now()
 	campaignIDs := createCampaigns(campaignCount, totalPerCampaign)
+	duration := time.Since(start)
+	log.Printf("Created %d campaigns in %v", len(campaignIDs), duration)
 
 	var wg sync.WaitGroup
 	var success, failed int64

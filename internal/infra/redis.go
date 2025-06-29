@@ -21,6 +21,10 @@ func NewRedisClient() *RedisClient {
 	}
 }
 
+func (r *RedisClient) SAdd(ctx context.Context, key string, value string) (int64, error) {
+	return r.redisClient.SAdd(ctx, key, value).Result()
+}
+
 func (r *RedisClient) SetNx(ctx context.Context, key string, value, ttl time.Duration) (bool, error) {
 	return r.redisClient.SetNX(ctx, key, value, ttl).Result()
 }
@@ -45,6 +49,14 @@ func (r *RedisClient) Get(ctx context.Context, key string) (string, error) {
 		return "", err
 	}
 	return val, nil
+}
+
+func (r *RedisClient) HSet(ctx context.Context, key string, values map[string]interface{}) (int64, error) {
+	return r.redisClient.HSet(ctx, key, values).Result()
+}
+
+func (r *RedisClient) HExists(ctx context.Context, key, field string) (bool, error) {
+	return r.redisClient.HExists(ctx, key, field).Result()
 }
 
 func (r *RedisClient) FlushAll(ctx context.Context) error {

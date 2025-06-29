@@ -10,7 +10,6 @@ import (
 	"github.com/ssipflow/coupon-issuance/internal/repo"
 	"github.com/ssipflow/coupon-issuance/pkg/util"
 	"log"
-	"strconv"
 )
 
 type Consumer struct {
@@ -36,11 +35,10 @@ func (c *Consumer) IssueCouponProcessor() asynq.HandlerFunc {
 		}
 
 		lockKey := fmt.Sprintf("lock:coupon:campaign:%d:user:%d", payload.CampaignID, payload.UserID)
-		issuedKey := fmt.Sprintf("coupon:issued:campaign:%d", payload.CampaignID)
 
 		tx := c.couponRepository.GetDB().Begin()
 		if tx.Error != nil {
-			log.Printf("[ERROR] Transaction begin failed: %v", tx.Error)
+			log.Printf("IssueCouponProcessor.GetDB.Begin.err: %v", tx.Error)
 			_, _ = c.redisClient.Del(ctx, lockKey)
 			return tx.Error
 		}
@@ -49,10 +47,9 @@ func (c *Consumer) IssueCouponProcessor() asynq.HandlerFunc {
 		defer func() {
 			if needRollback {
 				_ = tx.Rollback()
-				_, _ = c.redisClient.Decr(ctx, issuedKey)
 			} else {
 				if err := tx.Commit().Error; err != nil {
-					log.Printf("[ERROR] Commit failed: %v", err)
+					log.Printf("IssueCouponProcessor.Commit.err: %v", err)
 				}
 			}
 			_, _ = c.redisClient.Del(ctx, lockKey)
@@ -65,17 +62,19 @@ func (c *Consumer) IssueCouponProcessor() asynq.HandlerFunc {
 			Code:       code,
 		}
 
-		if err := c.couponRepository.CreateCoupon(tx, ctx, coupon); err != nil {
-			log.Printf("CreateCoupon failed: %v", err)
+		if err := c.couponRepository.IncrementCampaignCurrentCoupon(tx, ctx, payload.CampaignID); err != nil {
+			log.Printf("IssueCoupon.UpdateCampaignCurrentCoupon.err: %v", err)
 			return err
 		}
 
-		val, _ := c.redisClient.Get(ctx, issuedKey)
-		issuedCount, _ := strconv.Atoi(val)
-		if err := c.couponRepository.UpdateCampaignCurrentCoupon(tx, ctx, payload.CampaignID, int64(issuedCount)); err != nil {
-			log.Printf("UpdateCampaignCurrentCoupon failed: %v", err)
+		if err := c.couponRepository.CreateCoupon(tx, ctx, coupon); err != nil {
+			log.Printf("IssueCouponProcessor.CreateCoupon.err: %v", err)
 			return err
 		}
+
+		cacheKey := "cache:coupon:issued"
+		issuedCouponCacheKey := fmt.Sprintf("campaign:%d:user:%d", payload.CampaignID, payload.UserID)
+		_, _ = c.redisClient.HSet(ctx, cacheKey, map[string]interface{}{issuedCouponCacheKey: code})
 
 		needRollback = false
 		log.Printf("[SUCCESS] Issued coupon to user %d in campaign %d", payload.UserID, payload.CampaignID)
