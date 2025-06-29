@@ -1,7 +1,6 @@
 package task
 
 import (
-	"context"
 	"github.com/hibiken/asynq"
 	"github.com/ssipflow/coupon-issuance/internal/infra"
 	"github.com/ssipflow/coupon-issuance/internal/repo"
@@ -29,20 +28,6 @@ func (a *AsynqWorker) Start() {
 			Queues: map[string]int{
 				"default": 1,
 			},
-			ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
-				log.Printf("[DLQ] asynq worker error: task type: %s, payload: %s, error: %v", task.Type(), string(task.Payload()), err)
-
-				dlq := asynq.NewClient(asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR")})
-				defer dlq.Close()
-
-				_, enqueueErr := dlq.Enqueue(asynq.NewTask(task.Type(), task.Payload()),
-					asynq.Queue("dlq"),
-					asynq.MaxRetry(0),
-				)
-				if enqueueErr != nil {
-					log.Printf("[DLQ] Failed to enqueue task: %v", enqueueErr)
-				}
-			}),
 		},
 	)
 
