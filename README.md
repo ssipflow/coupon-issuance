@@ -60,10 +60,10 @@ docker compose up --scale backend-app={numberOfInstance} --build
 
 | 도구 | 목적 | 설명 |
 |------|------|------|
-| `go test` | 단위 테스트 | 로직 단위의 기본 검증 |
+| `go test` | 기능 및 부하 테스트 | 기능 중심 |
 | `k6` | 부하 테스트 | 최대 1000TPS 목표 성능 검증 |
 
-### 4.3. go test 
+### 4.3. go test
 
 ```bash
 go test -v -count=1 ./test/stress
